@@ -12,49 +12,53 @@ class Router
     /**
      * @var string
      */
-    private static string $requestedMethod = '';
-
-    /**
-     * @var string
-     */
-    private static string $requestedUri = '';
-
-    /**
-     * @var string
-     */
-    private static string $serverBasePath = '';
+    protected string $serverBasePath = '';
 
     /**
      * @var array
      */
-    protected static array $routes = [];
+    protected array $routes = [];
+
+    /**
+     * @var array|string[]
+     */
+    protected array $matchTypes = [
+        'i'  => '[0-9]++',
+        'a'  => '[0-9A-Za-z]++',
+        'h'  => '[0-9A-Fa-f]++',
+        '*'  => '.+?',
+        '**' => '.++',
+        ''   => '[^/\.]++'
+    ];
 
     /**
      * @param string $pattern
      * @param closure $function
-     * @param array $methods
+     * @param string ...$methods
      * @return void
      */
-    protected static function addRoute(string $pattern, closure $function, array $methods = ['GET'])
+    protected function addRoute(string $pattern, closure $function, string ...$methods)
     {
+        $pattern = $this->serverBasePath . $pattern;
+
         foreach ($methods as $method) {
             $method = strtoupper($method);
-            self::$routes[$method][$pattern] = $function;
+            $this->routes[$method][$pattern] = $function;
         }
     }
 
     /**
      * @return array
      */
-    public static function getRoutes(): array
+    protected function getRoutes(): array
     {
-        return self::$routes;
+        return $this->routes;
     }
 
     /**
      * @return mixed
      */
-    public static function getRequestMethod(): mixed
+    protected function getRequestMethod(): mixed
     {
         return $_SERVER['REQUEST_METHOD'];
     }
@@ -62,9 +66,9 @@ class Router
     /**
      * @return string
      */
-    public static function getCurrentUri(): string
+    protected function getCurrentUri(): string
     {
-        $uri = substr(rawurldecode($_SERVER['REQUEST_URI']), strlen(self::$serverBasePath));
+        $uri = htmlspecialchars(rawurldecode($_SERVER['REQUEST_URI']));
 
         if (str_contains($uri, '?')) {
             $uri = substr($uri, 0, strpos($uri, '?'));
@@ -76,27 +80,17 @@ class Router
     /**
      * @return string
      */
-    public static function getBasePath()
+    public function getBasePath()
     {
-        return self::$serverBasePath;
+        return $this->serverBasePath;
     }
 
     /**
      * @return void
      */
-    public static function setBasePath(string $serverBasePath)
+    public function setBasePath(string $serverBasePath)
     {
-        self::$serverBasePath = $serverBasePath;
-    }
-
-    /**
-     * @param string $pattern
-     * @param closure $function
-     * @return void
-     */
-    public static function get(string $pattern, closure $function)
-    {
-        self::addRoute($pattern, $function, ['GET']);
+        $this->serverBasePath = $serverBasePath;
     }
 
     /**
@@ -104,9 +98,9 @@ class Router
      * @param closure $function
      * @return void
      */
-    public static function post(string $pattern, closure $function)
+    public function get(string $pattern, closure $function)
     {
-        self::addRoute($pattern, $function, ['POST']);
+        $this->addRoute($pattern, $function, 'GET');
     }
 
     /**
@@ -114,9 +108,9 @@ class Router
      * @param closure $function
      * @return void
      */
-    public static function put(string $pattern, closure $function)
+    public function post(string $pattern, closure $function)
     {
-        self::addRoute($pattern, $function, ['PUT']);
+        $this->addRoute($pattern, $function, 'POST');
     }
 
     /**
@@ -124,9 +118,9 @@ class Router
      * @param closure $function
      * @return void
      */
-    public static function patch(string $pattern, closure $function)
+    public function put(string $pattern, closure $function)
     {
-        self::addRoute($pattern, $function, ['PATCH']);
+        $this->addRoute($pattern, $function, 'PUT');
     }
 
     /**
@@ -134,9 +128,9 @@ class Router
      * @param closure $function
      * @return void
      */
-    public static function delete(string $pattern, closure $function)
+    public function patch(string $pattern, closure $function)
     {
-        self::addRoute($pattern, $function, ['DELETE']);
+        $this->addRoute($pattern, $function, 'PATCH');
     }
 
     /**
@@ -144,9 +138,9 @@ class Router
      * @param closure $function
      * @return void
      */
-    public static function options(string $pattern, closure $function)
+    public function delete(string $pattern, closure $function)
     {
-        self::addRoute($pattern, $function, ['OPTIONS']);
+        $this->addRoute($pattern, $function, 'DELETE');
     }
 
     /**
@@ -154,20 +148,30 @@ class Router
      * @param closure $function
      * @return void
      */
-    public static function any(string $pattern, closure $function)
+    public function options(string $pattern, closure $function)
     {
-        self::addRoute($pattern, $function, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']);
+        $this->addRoute($pattern, $function, 'OPTIONS');
     }
 
     /**
      * @param string $pattern
      * @param closure $function
-     * @param array $methods
      * @return void
      */
-    public static function custom(string $pattern, closure $function, array $methods = ['GET'])
+    public function any(string $pattern, closure $function)
     {
-        self::addRoute($pattern, $function, $methods);
+        $this->addRoute($pattern, $function, 'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS');
+    }
+
+    /**
+     * @param string $pattern
+     * @param closure $function
+     * @param string ...$methods
+     * @return void
+     */
+    public function custom(string $pattern, closure $function, string ...$methods)
+    {
+        $this->addRoute($pattern, $function, ...$methods);
     }
 
     /**
@@ -175,38 +179,80 @@ class Router
      * @param closure $function
      * @return void
      */
-    public static function mountPath(string $baseRoute, closure $function)
+    public function mountPath(string $baseRoute, closure $function)
     {
-        $currentBaseRoute = self::$serverBasePath;
+        if (str_starts_with($this->getCurrentUri(), $this->serverBasePath . $baseRoute)) {
+            $currentBaseRoute = $this->serverBasePath;
 
-        self::$serverBasePath .= $baseRoute;
+            $this->serverBasePath .= $baseRoute;
 
-        call_user_func($function);
+            call_user_func($function);
 
-        self::$serverBasePath = $currentBaseRoute;
+            $this->serverBasePath = $currentBaseRoute;
+        }
     }
 
     /**
-     * @throws Exception
+     * @param string $route
+     * @return string
      */
-    public static function matchRoute(closure $functionError): void
+    protected function compileRoute(string $route): string
     {
-        self::$requestedMethod = self::getRequestMethod();
-        self::$requestedUri = self::getCurrentUri();
+        if (preg_match_all('`(/|\.|)\[([^:\]]*+)(?::([^:\]]*+))?](\?|)`', $route, $matches, PREG_SET_ORDER)) {
+            $matchTypes = $this->matchTypes;
 
-        if (isset(self::$routes[self::$requestedMethod])) {
-            foreach (self::$routes[self::$requestedMethod] as $routeUrl => $function) {
-                // Use named sub patterns in the regular expression pattern to capture each parameter value separately
-                $pattern = preg_replace('/\/:([^\/]+)/', '/(?P<$1>[^/]+)', $routeUrl);
-                if (preg_match('#^' . $pattern . '$#', self::$requestedUri, $matches)) {
+            foreach ($matches as $match) {
+                list($block, $pre, $type, $param, $optional) = $match;
+
+                if (isset($matchTypes[$type])) {
+                    $type = $matchTypes[$type];
+                }
+                if ($pre === '.') {
+                    $pre = '\.';
+                }
+
+                $optional = $optional !== '' ? '?' : null;
+
+                //Older versions of PCRE require the 'P' in (?P<named>)
+                $pattern = '(?:'
+                    . ($pre !== '' ? $pre : null)
+                    . '('
+                    . ($param !== '' ? "?P<$param>" : null)
+                    . $type
+                    . ')'
+                    . $optional
+                    . ')'
+                    . $optional;
+
+                $route = str_replace($block, $pattern, $route);
+            }
+        }
+
+        return "`^$route$`u";
+    }
+
+
+    /**
+     * @param closure|string $functionError
+     * @return void
+     */
+    public function matchRoute(closure|string $functionError): void
+    {
+        $requestedMethod = $this->getRequestMethod();
+        $requestedUri = $this->getCurrentUri();
+
+        if (isset($this->routes[$requestedMethod])) {
+            foreach ($this->routes[$requestedMethod] as $routeUrl => $function) {
+                if (preg_match($this->compileRoute($routeUrl), $requestedUri, $matches)) {
                     // Pass the captured parameter values as named arguments to the target function
                     $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY); // Only keep named subpattern matches
                     call_user_func_array($function, $params);
-                    return ;
+                    return;
                 }
             }
         }
 
-        call_user_func($functionError);
+        if (is_string($functionError)) exit($functionError);
+        else call_user_func($functionError);
     }
 }
