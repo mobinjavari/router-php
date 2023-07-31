@@ -20,12 +20,17 @@ class Router
     protected string $includeBasePath = __DIR__;
 
     /**
+     * @var closure|string
+     */
+    protected closure|string $error404 = '';
+
+    /**
      * @var array
      */
     protected array $routes = [];
 
     /**
-     * @var array|string[]
+     * @var array
      */
     protected array $matchTypes = [
         'i'  => '[0-9]++',
@@ -60,9 +65,30 @@ class Router
         return $this->includeBasePath;
     }
 
+    /**
+     * @param string $path
+     * @return void
+     */
     public function setIncludePath(string $path)
     {
         $this->includeBasePath = $path;
+    }
+
+    /**
+     * @return closure|string
+     */
+    public function get404(): string|closure
+    {
+        return $this->error404;
+    }
+
+    /**
+     * @param closure|string $callback
+     * @return void
+     */
+    public function set404(closure|string $callback)
+    {
+        $this->error404 = $callback;
     }
 
     /**
@@ -267,10 +293,9 @@ class Router
 
 
     /**
-     * @param closure|string $callbackError
      * @return void
      */
-    public function matchRoute(closure|string $callbackError): void
+    public function matchRoute(): void
     {
         $requestedMethod = $this->getRequestMethod();
         $requestedUri = $this->getCurrentUri();
@@ -285,6 +310,7 @@ class Router
             }
         }
 
-        $this->runCallback($callbackError);
+        $this->runCallback($this->error404);
+        exit;
     }
 }

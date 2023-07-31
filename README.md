@@ -25,11 +25,13 @@ $router->mountPath('/api', function() use ($router) {
     $router->any('/hello/[:nicname]', '/hello.php');
 });
 
-// [*] And finally, at the end of the file, we run the following method to run and check all the routes
-// To set the 404 page, it is enough to define the php file address of the page or as a function in the method parameter below
-$router->matchRoute(function () {
+// [!] set 404 error
+$router->set404(function () {
     echo '404 | Page Not Found'
 });
+
+// [*] And finally, at the end of the file, we run the following method to run and check all the routes
+$router->matchRoute();
 ```
 
 <p>hello.php</p>
