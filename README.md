@@ -26,7 +26,7 @@ $router->mountPath('/api', function() use ($router) {
 });
 
 // [!] set 404 error
-$router->set404(function () {
+$router->setError(function () {
     echo '404 | Page Not Found'
 });
 
