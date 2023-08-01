@@ -22,7 +22,7 @@ class Router
     /**
      * @var closure|string
      */
-    protected closure|string $error404 = '';
+    protected closure|string $error = '';
 
     /**
      * @var array
@@ -77,18 +77,18 @@ class Router
     /**
      * @return closure|string
      */
-    public function get404(): string|closure
+    public function getError(): string|closure
     {
-        return $this->error404;
+        return $this->error;
     }
 
     /**
      * @param closure|string $callback
      * @return void
      */
-    public function set404(closure|string $callback)
+    public function setError(closure|string $callback)
     {
-        $this->error404 = $callback;
+        $this->error = $callback;
     }
 
     /**
@@ -197,11 +197,22 @@ class Router
     }
 
     /**
-     * @return mixed
+     * @return string
      */
-    protected function getRequestMethod(): mixed
+    protected function getRequestMethod(): string
     {
         return $_SERVER['REQUEST_METHOD'];
+    }
+
+    /**
+     * @return mixed
+     */
+    public function phpInput(): array
+    {
+        if ($contents = file_get_contents('php://input') ?? '')
+            return json_decode($contents, true) ?? [];
+
+        return [];
     }
 
     /**
@@ -238,18 +249,27 @@ class Router
     /**
      * @param string $baseRoute
      * @param closure $function
+     * @param array ...$methods
      * @return void
      */
-    public function mountPath(string $baseRoute, closure $function)
+    public function mountPath(string $baseRoute, closure $function, array $methods = ['ANY'])
     {
-        if (str_starts_with($this->getCurrentUri(), $this->serverBasePath . $baseRoute)) {
-            $currentBaseRoute = $this->serverBasePath;
-            $this->serverBasePath .= $baseRoute;
+        foreach ($methods as $method) {
+            if ($method == $this->getRequestMethod() || $method == 'ANY') {
+                if (str_starts_with($this->getCurrentUri(), $this->serverBasePath . $baseRoute)) {
+                    $currentBaseRoute = $this->serverBasePath;
+                    $this->serverBasePath .= $baseRoute;
 
-            call_user_func($function);
+                    call_user_func($function);
 
-            $this->serverBasePath = $currentBaseRoute;
+                    $this->serverBasePath = $currentBaseRoute;
+                }
+
+                break;
+            }
         }
+
+
     }
 
     /**
@@ -310,7 +330,7 @@ class Router
             }
         }
 
-        $this->runCallback($this->error404);
+        $this->runCallback($this->error);
         exit;
     }
 }
