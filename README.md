@@ -23,7 +23,7 @@ $router->mountPath('/api', function() use ($router) {
         echo 'test'.$id;
     });
     $router->any('/hello/[:nicname]', '/hello.php');
-});
+}, ['ANY']);
 
 // [!] set 404 error
 $router->setError(function () {

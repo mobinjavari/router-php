@@ -20,9 +20,9 @@ class Router
     protected string $includeBasePath = __DIR__;
 
     /**
-     * @var closure|string
+     * @var array
      */
-    protected closure|string $error = '';
+    protected array $elseRoute = [];
 
     /**
      * @var array
@@ -75,20 +75,22 @@ class Router
     }
 
     /**
-     * @return closure|string
+     * @return array
      */
-    public function getError(): string|closure
+    public function getElseRoute(): array
     {
-        return $this->error;
+        return $this->elseRoute;
     }
 
     /**
      * @param closure|string $callback
+     * @param string ...$methods
      * @return void
      */
-    public function setError(closure|string $callback)
+    public function setElseRoute(closure|string $callback, array $methods = ['ANY'])
     {
-        $this->error = $callback;
+        foreach ($methods as $method)
+            $this->elseRoute[strtoupper($method)] = $callback;
     }
 
     /**
@@ -242,7 +244,9 @@ class Router
             foreach ($parameters as $name => $value) $$name = $value;
             include_once $this->includeBasePath . $callback;
         } else {
-            exit("404 | Callback Not Found");
+            $status = is_numeric($callback) ? $callback : 404;
+            http_response_code($status);
+            exit("<style> * {color-scheme: dark; text-align: center;} </style> <h1>$status | Callback Error</h1>");
         }
     }
 
@@ -255,12 +259,15 @@ class Router
     public function mountPath(string $baseRoute, closure $function, array $methods = ['ANY'])
     {
         foreach ($methods as $method) {
+            /** @var string $method */
+            $method = strtoupper($method);
+
             if ($method == $this->getRequestMethod() || $method == 'ANY') {
                 if (str_starts_with($this->getCurrentUri(), $this->serverBasePath . $baseRoute)) {
                     $currentBaseRoute = $this->serverBasePath;
                     $this->serverBasePath .= $baseRoute;
 
-                    call_user_func($function);
+                    $this->runCallback($function);
 
                     $this->serverBasePath = $currentBaseRoute;
                 }
@@ -330,7 +337,7 @@ class Router
             }
         }
 
-        $this->runCallback($this->error);
+        $this->runCallback($this->elseRoute[$requestedMethod] ?? $this->elseRoute['ANY'] ?? '404');
         exit;
     }
 }
